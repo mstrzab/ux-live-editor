@@ -1,0 +1,80 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String?   @unique
+  name          String?
+  password      String?
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  channels      Channel[]
+  posts         Post[]
+}
+
+model Channel {
+  id            String    @id @default(cuid())
+  telegramId    String    @unique
+  name          String
+  username      String?
+  botToken      String
+  isActive      Boolean   @default(true)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  posts         Post[]
+}
+
+model Post {
+  id            String    @id @default(cuid())
+  title         String?
+  content       String    @default("[]")
+  status        PostStatus @default(DRAFT)
+  telegramMessageId Int?
+  scheduledAt   DateTime?
+  publishedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  channelId     String
+  channel       Channel   @relation(fields: [channelId], references: [id])
+  versions      PostVersion[]
+  media         Media[]
+}
+
+model PostVersion {
+  id            String    @id @default(cuid())
+  content       String
+  versionNumber Int
+  createdAt     DateTime  @default(now())
+  postId        String
+  post          Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+}
+
+model Media {
+  id            String    @id @default(cuid())
+  filename      String
+  originalName  String
+  mimeType      String
+  size          Int
+  url           String
+  createdAt     DateTime  @default(now())
+  postId        String?
+  post          Post?     @relation(fields: [postId], references: [id], onDelete: SetNull)
+  userId        String
+}
+
+enum PostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  FAILED
+}
