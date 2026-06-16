@@ -1,36 +1,72 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# UX Live Editor
 
-## Getting Started
+Редактор постов для Telegram-каналов с rich-контентом.
 
-First, run the development server:
+## Возможности
+
+- WYSIWYG-редактор на базе TipTap
+- Блочная структура контента (текст, изображения, видео, аудио)
+- Вставка медиа из буфера обмена (Ctrl+V)
+- Счетчик символов с лимитом 8000
+- Мульти-постинг в несколько каналов
+- Отложенная публикация
+- Черновики с историей изменений
+- Автосохранение
+
+## Быстрый старт
+
+### Требования
+
+- Node.js 20+
+- PostgreSQL
+- Telegram Bot Token (от @BotFather)
+
+### Установка
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/mstrzab/ux-live-editor.git
+cd ux-live-editor
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Настройка
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+cp .env.example .env
+# Заполни .env своими данными
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Запуск
 
-## Learn More
+```bash
+npx prisma migrate dev --name init
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+Открой http://localhost:3000
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Деплой на сервер
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+chmod +x deploy.sh
+./deploy.sh
+```
 
-## Deploy on Vercel
+## Telegram Bot
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. Создай бота через @BotFather
+2. Скопируй токен в .env
+3. Добавь бота администратором канала
+4. Узнай ID канала (например, через @userinfobot или API)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Структура проекта
+
+```
+src/
+├── app/           # Next.js App Router pages и API
+├── components/    # React компоненты
+├── lib/           # Утилиты, Prisma, Auth
+└── generated/     # Сгенерированные типы Prisma
+prisma/
+└── schema.prisma  # Схема базы данных
+```
