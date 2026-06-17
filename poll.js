@@ -4,8 +4,7 @@ let offset = 0;
 
 async function poll() {
   try {
-    const url = `https://api.telegram.org/bot${TOKEN}/getUpdates?offset=${offset}&timeout=30`;
-    const res = await fetch(url);
+    const res = await fetch(`https://api.telegram.org/bot${TOKEN}/getUpdates?offset=${offset}&timeout=30`);
     const data = await res.json();
 
     if (!data.ok) {
@@ -13,8 +12,6 @@ async function poll() {
       setTimeout(poll, 5000);
       return;
     }
-
-    console.log(`Got ${data.result.length} updates, offset: ${offset}`);
 
     for (const update of data.result) {
       offset = update.update_id + 1;
@@ -26,40 +23,32 @@ async function poll() {
         if (msg.text === "/start") {
           const chatId = msg.chat.id;
           const firstName = msg.from.first_name;
-          const lastName = msg.from.last_name || "";
-          const username = msg.from.username || "";
-          const telegramId = msg.from.id;
 
-          const webAppUrl = `${APP_URL}/auth?tg_id=${telegramId}&first_name=${encodeURIComponent(firstName)}&last_name=${encodeURIComponent(lastName)}&username=${encodeURIComponent(username)}`;
-
-          console.log(`Sending login button to ${chatId}, web_app: ${webAppUrl}`);
-
-          const sendRes = await fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
+          await fetch(`https://api.telegram.org/bot${TOKEN}/sendMessage`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               chat_id: chatId,
-              text: `Привет, ${firstName}! Нажми кнопку для входа.`,
+              text: `Привет, ${firstName}! Открой редактор и войди через Telegram.`,
               reply_markup: {
                 inline_keyboard: [[{
-                  text: `Войти как ${firstName}`,
-                  web_app: { url: webAppUrl }
+                  text: "Открыть UX Live Editor",
+                  url: APP_URL
                 }]]
               }
             })
           });
 
-          const sendData = await sendRes.json();
-          console.log("Send result:", JSON.stringify(sendData));
+          console.log(`Sent link to ${chatId}`);
         }
       }
     }
   } catch (e) {
-    console.error("Poll error:", e.message);
+    console.error("Error:", e.message);
   }
 
   setTimeout(poll, 100);
 }
 
-console.log("Starting poll...");
+console.log("Polling started...");
 poll();
