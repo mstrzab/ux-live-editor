@@ -2,6 +2,7 @@ import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -37,6 +38,7 @@ export const authOptions: NextAuthOptions = {
           id: user.id,
           email: user.email,
           name: user.name,
+          image: user.image,
         };
       },
     }),
@@ -45,15 +47,21 @@ export const authOptions: NextAuthOptions = {
     strategy: "jwt",
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
       if (user) {
         token.id = user.id;
+        token.image = user.image;
+      }
+      if (trigger === "update" && session) {
+        token.name = session.user?.name;
+        token.image = session.user?.image;
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         (session.user as { id: string }).id = token.id as string;
+        (session.user as { image?: string }).image = token.image as string;
       }
       return session;
     },

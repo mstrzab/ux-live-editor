@@ -1,10 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Plus, FileText, Clock, CheckCircle, Trash2, Edit } from "lucide-react";
+import {
+  Plus,
+  FileText,
+  Clock,
+  CheckCircle,
+  Trash2,
+  Pencil,
+  Hash,
+  Search,
+  X,
+} from "lucide-react";
 
 interface Channel {
   id: string;
@@ -38,17 +48,26 @@ export default function Dashboard() {
     username: "",
   });
   const [filter, setFilter] = useState<string>("all");
+  const [search, setSearch] = useState("");
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   useEffect(() => {
     if (status === "unauthenticated") router.push("/login");
   }, [status, router]);
 
-  useEffect(() => {
-    if (session) {
-      fetch("/api/channels").then((r) => r.json()).then(setChannels);
-      fetch("/api/posts").then((r) => r.json()).then(setPosts);
-    }
+  const loadData = useCallback(async () => {
+    if (!session) return;
+    const [ch, po] = await Promise.all([
+      fetch("/api/channels").then((r) => r.json()),
+      fetch("/api/posts").then((r) => r.json()),
+    ]);
+    setChannels(ch);
+    setPosts(po);
   }, [session]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleAddChannel = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,9 +85,10 @@ export default function Dashboard() {
   };
 
   const handleDeletePost = async (id: string) => {
-    if (!confirm("Удалить пост?")) return;
+    setDeleting(id);
     await fetch(`/api/posts/${id}`, { method: "DELETE" });
     setPosts(posts.filter((p) => p.id !== id));
+    setDeleting(null);
   };
 
   const handleCreatePost = async (channelId: string) => {
@@ -83,113 +103,110 @@ export default function Dashboard() {
     }
   };
 
-  const filteredPosts =
-    filter === "all" ? posts : posts.filter((p) => p.status === filter);
+  const filteredPosts = posts
+    .filter((p) => filter === "all" || p.status === filter)
+    .filter(
+      (p) =>
+        !search ||
+        p.title?.toLowerCase().includes(search.toLowerCase()) ||
+        p.channel.name.toLowerCase().includes(search.toLowerCase())
+    );
 
-  const statusIcon = (status: string) => {
-    switch (status) {
-      case "DRAFT":
-        return <FileText className="h-4 w-4 text-gray-500" />;
-      case "SCHEDULED":
-        return <Clock className="h-4 w-4 text-yellow-500" />;
-      case "PUBLISHED":
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
-      default:
-        return null;
-    }
+  const statusConfig: Record<string, { icon: React.ReactNode; label: string; color: string }> = {
+    DRAFT: { icon: <FileText className="h-3.5 w-3.5" />, label: "Черновик", color: "bg-zinc-100 text-zinc-600" },
+    SCHEDULED: { icon: <Clock className="h-3.5 w-3.5" />, label: "Отложено", color: "bg-amber-50 text-amber-600" },
+    PUBLISHED: { icon: <CheckCircle className="h-3.5 w-3.5" />, label: "Опубликовано", color: "bg-emerald-50 text-emerald-600" },
   };
+
+  const filterTabs = [
+    { key: "all", label: "Все", count: posts.length },
+    { key: "DRAFT", label: "Черновики", count: posts.filter((p) => p.status === "DRAFT").length },
+    { key: "SCHEDULED", label: "Отложенные", count: posts.filter((p) => p.status === "SCHEDULED").length },
+    { key: "PUBLISHED", label: "Опубликованные", count: posts.filter((p) => p.status === "PUBLISHED").length },
+  ];
 
   if (status === "loading") {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        Загрузка...
+        <div className="animate-pulse-soft text-muted">Загрузка...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="mx-auto max-w-7xl px-6 py-8">
-        <div className="mb-8 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">Посты</h1>
+    <div className="min-h-screen">
+      <div className="mx-auto max-w-5xl px-6 py-10">
+        <div className="mb-8 flex items-end justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight">Посты</h1>
+            <p className="mt-1 text-sm text-muted">
+              {posts.length > 0
+                ? `${posts.length} ${posts.length === 1 ? "пост" : posts.length < 5 ? "поста" : "постов"}`
+                : "Создайте первый пост"}
+            </p>
+          </div>
           <button
             onClick={() => setShowAddChannel(true)}
-            className="flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+            className="flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-accent-hover active:scale-[0.98]"
           >
             <Plus className="h-4 w-4" />
-            Добавить канал
+            Канал
           </button>
         </div>
 
         {showAddChannel && (
-          <div className="mb-8 rounded-lg border border-gray-200 bg-white p-6 shadow-sm">
-            <h2 className="mb-4 text-lg font-semibold">Новый канал</h2>
+          <div className="mb-8 animate-in rounded-2xl border border-border bg-card p-6 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-base font-semibold">Новый канал</h2>
+              <button
+                onClick={() => setShowAddChannel(false)}
+                className="rounded-lg p-1 text-muted hover:bg-card-hover"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
             <form onSubmit={handleAddChannel} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Название канала
-                  </label>
+                  <label className="mb-1.5 block text-sm font-medium">Название</label>
                   <input
                     type="text"
                     value={channelForm.name}
-                    onChange={(e) =>
-                      setChannelForm({ ...channelForm, name: e.target.value })
-                    }
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
+                    onChange={(e) => setChannelForm({ ...channelForm, name: e.target.value })}
+                    className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+                    placeholder="Мой канал"
                     required
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Telegram ID канала
-                  </label>
+                  <label className="mb-1.5 block text-sm font-medium">Telegram ID</label>
                   <input
                     type="text"
                     value={channelForm.telegramId}
-                    onChange={(e) =>
-                      setChannelForm({
-                        ...channelForm,
-                        telegramId: e.target.value,
-                      })
-                    }
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
+                    onChange={(e) => setChannelForm({ ...channelForm, telegramId: e.target.value })}
+                    className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                     placeholder="-1001234567890"
                     required
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Bot Token
-                  </label>
+                  <label className="mb-1.5 block text-sm font-medium">Bot Token</label>
                   <input
                     type="text"
                     value={channelForm.botToken}
-                    onChange={(e) =>
-                      setChannelForm({
-                        ...channelForm,
-                        botToken: e.target.value,
-                      })
-                    }
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
+                    onChange={(e) => setChannelForm({ ...channelForm, botToken: e.target.value })}
+                    className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                     placeholder="123456:ABC-DEF..."
                     required
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-sm font-medium text-gray-700">
-                    Username (опционально)
-                  </label>
+                  <label className="mb-1.5 block text-sm font-medium">Username</label>
                   <input
                     type="text"
                     value={channelForm.username}
-                    onChange={(e) =>
-                      setChannelForm({
-                        ...channelForm,
-                        username: e.target.value,
-                      })
-                    }
-                    className="w-full rounded-md border border-gray-300 px-3 py-2 focus:border-blue-500 focus:outline-none"
+                    onChange={(e) => setChannelForm({ ...channelForm, username: e.target.value })}
+                    className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
                     placeholder="@channel_name"
                   />
                 </div>
@@ -197,14 +214,14 @@ export default function Dashboard() {
               <div className="flex gap-2">
                 <button
                   type="submit"
-                  className="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+                  className="rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover"
                 >
                   Добавить
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowAddChannel(false)}
-                  className="rounded-md bg-gray-100 px-4 py-2 text-gray-700 hover:bg-gray-200"
+                  className="rounded-xl bg-background px-4 py-2 text-sm text-muted hover:bg-card-hover"
                 >
                   Отмена
                 </button>
@@ -213,109 +230,108 @@ export default function Dashboard() {
           </div>
         )}
 
-        <div className="mb-6 flex flex-wrap gap-2">
-          {[
-            { key: "all", label: "Все" },
-            { key: "DRAFT", label: "Черновики" },
-            { key: "SCHEDULED", label: "Отложенные" },
-            { key: "PUBLISHED", label: "Опубликованные" },
-          ].map((f) => (
+        <div className="mb-6 flex items-center gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Поиск постов..."
+              className="w-full rounded-xl border border-border bg-card py-2 pl-9 pr-4 text-sm transition-colors placeholder:text-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+            />
+          </div>
+        </div>
+
+        <div className="mb-6 flex gap-1 rounded-xl bg-background p-1">
+          {filterTabs.map((f) => (
             <button
               key={f.key}
               onClick={() => setFilter(f.key)}
-              className={`rounded-full px-4 py-1.5 text-sm ${
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${
                 filter === f.key
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted hover:text-foreground"
               }`}
             >
               {f.label}
+              {f.count > 0 && (
+                <span className="rounded-full bg-background px-1.5 py-0.5 text-xs">
+                  {f.count}
+                </span>
+              )}
             </button>
           ))}
         </div>
 
         {channels.length === 0 ? (
-          <div className="rounded-lg border-2 border-dashed border-gray-300 p-12 text-center">
-            <p className="mb-4 text-gray-500">
-              Подключите первый канал, чтобы начать
+          <div className="rounded-2xl border-2 border-dashed border-border p-16 text-center animate-in">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/10">
+              <Hash className="h-6 w-6 text-accent" />
+            </div>
+            <p className="mb-2 text-base font-medium">Подключите канал</p>
+            <p className="mb-6 text-sm text-muted">
+              Добавьте Telegram-канал, чтобы начать публикацию постов
             </p>
             <button
               onClick={() => setShowAddChannel(true)}
-              className="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+              className="rounded-xl bg-accent px-5 py-2.5 text-sm font-medium text-white hover:bg-accent-hover"
             >
               Добавить канал
             </button>
           </div>
+        ) : filteredPosts.length === 0 ? (
+          <div className="rounded-2xl border border-border bg-card p-12 text-center animate-in">
+            <p className="text-sm text-muted">
+              {search ? "Ничего не найдено" : "Нет постов в этой категории"}
+            </p>
+          </div>
         ) : (
-          <div className="space-y-4">
-            {channels.map((channel) => (
-              <div
-                key={channel.id}
-                className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm"
-              >
-                <div className="mb-3 flex items-center justify-between">
-                  <div>
-                    <h3 className="font-semibold text-gray-900">
-                      {channel.name}
-                    </h3>
-                    {channel.username && (
-                      <p className="text-sm text-gray-500">
-                        {channel.username}
-                      </p>
-                    )}
-                  </div>
-                  <button
-                    onClick={() => handleCreatePost(channel.id)}
-                    className="flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-sm text-white hover:bg-blue-700"
-                  >
-                    <Plus className="h-3 w-3" />
-                    Новый пост
-                  </button>
-                </div>
-
-                <div className="space-y-2">
-                  {posts
-                    .filter((p) => p.channel.id === channel.id)
-                    .filter((p) => filter === "all" || p.status === filter)
-                    .map((post) => (
-                      <div
-                        key={post.id}
-                        className="flex items-center justify-between rounded-md bg-gray-50 px-4 py-3"
+          <div className="space-y-2">
+            {filteredPosts.map((post) => {
+              const st = statusConfig[post.status] || statusConfig.DRAFT;
+              return (
+                <div
+                  key={post.id}
+                  className="group flex items-center gap-4 rounded-xl border border-border bg-card px-5 py-4 transition-all hover:border-accent/20 hover:shadow-sm animate-in"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-3">
+                      <Link
+                        href={`/editor/${post.id}`}
+                        className="truncate text-sm font-medium text-foreground hover:text-accent"
                       >
-                        <div className="flex items-center gap-3">
-                          {statusIcon(post.status)}
-                          <div>
-                            <Link
-                              href={`/editor/${post.id}`}
-                              className="font-medium text-gray-900 hover:text-blue-600"
-                            >
-                              {post.title || "Без названия"}
-                            </Link>
-                            <p className="text-xs text-gray-500">
-                              {new Date(post.updatedAt).toLocaleString("ru-RU")}{" "}
-                              · {post.status}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Link
-                            href={`/editor/${post.id}`}
-                            className="rounded p-1.5 text-gray-500 hover:bg-gray-200"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Link>
-                          <button
-                            onClick={() => handleDeletePost(post.id)}
-                            className="rounded p-1.5 text-gray-500 hover:bg-red-100 hover:text-red-600"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                        {post.title || "Без названия"}
+                      </Link>
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${st.color}`}>
+                        {st.icon}
+                        {st.label}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex items-center gap-2 text-xs text-muted">
+                      <span>{post.channel.name}</span>
+                      <span>·</span>
+                      <span>{new Date(post.updatedAt).toLocaleString("ru-RU", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                    <Link
+                      href={`/editor/${post.id}`}
+                      className="rounded-lg p-2 text-muted hover:bg-background hover:text-foreground"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Link>
+                    <button
+                      onClick={() => handleDeletePost(post.id)}
+                      disabled={deleting === post.id}
+                      className="rounded-lg p-2 text-muted hover:bg-danger/10 hover:text-danger disabled:opacity-50"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
