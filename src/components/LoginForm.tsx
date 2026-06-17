@@ -1,17 +1,13 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import TelegramWidget from "@/components/TelegramWidget";
 
 export default function LoginForm() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [mode, setMode] = useState<"telegram" | "email">("telegram");
   const router = useRouter();
 
   const handleTelegramAuth = useCallback(async (user: Record<string, string>) => {
@@ -41,25 +37,6 @@ export default function LoginForm() {
     }
   }, [router]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
-
-    const result = await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
-
-    if (result?.error) {
-      setError("Неверный email или пароль");
-      setLoading(false);
-    } else {
-      router.push("/dashboard");
-    }
-  };
-
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-sm">
@@ -82,77 +59,20 @@ export default function LoginForm() {
             </div>
           )}
 
-          <div className="mb-4 flex rounded-xl bg-background p-1">
-            <button
-              onClick={() => setMode("telegram")}
-              className={`flex-1 rounded-lg py-2 text-sm font-medium transition-all ${
-                mode === "telegram"
-                  ? "bg-card text-foreground shadow-sm"
-                  : "text-muted hover:text-foreground"
-              }`}
-            >
-              Telegram
-            </button>
-            <button
-              onClick={() => setMode("email")}
-              className={`flex-1 rounded-lg py-2 text-sm font-medium transition-all ${
-                mode === "email"
-                  ? "bg-card text-foreground shadow-sm"
-                  : "text-muted hover:text-foreground"
-              }`}
-            >
-              Email
-            </button>
-          </div>
-
-          {mode === "telegram" ? (
+          {loading ? (
+            <div className="py-8 text-center text-sm text-muted">
+              Авторизация...
+            </div>
+          ) : (
             <div className="py-4">
-              <p className="mb-4 text-center text-sm text-muted">
-                Нажмите кнопку ниже для входа через Telegram
+              <p className="mb-6 text-center text-sm text-muted">
+                Войдите через Telegram
               </p>
               <TelegramWidget
-                botUsername={process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || "ux_live_editor_bot"}
+                botUsername="out_redactor_bot"
                 onAuth={handleTelegramAuth}
               />
             </div>
-          ) : (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm transition-colors placeholder:text-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                  placeholder="you@example.com"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-foreground">
-                  Пароль
-                </label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm transition-colors placeholder:text-muted focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                  placeholder="••••••••"
-                  required
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full rounded-xl bg-accent py-2.5 text-sm font-medium text-white transition-all hover:bg-accent-hover disabled:opacity-50 active:scale-[0.98]"
-              >
-                {loading ? "Вход..." : "Войти"}
-              </button>
-            </form>
           )}
         </div>
 
