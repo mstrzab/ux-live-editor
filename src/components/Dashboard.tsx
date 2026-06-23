@@ -145,13 +145,27 @@ export default function Dashboard() {
                 : "Создайте первый пост"}
             </p>
           </div>
-          <button
-            onClick={() => setShowAddChannel(true)}
-            className="flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-accent-hover active:scale-[0.98]"
-          >
-            <Plus className="h-4 w-4" />
-            Канал
-          </button>
+          <div className="flex items-center gap-2">
+            {channels.length > 0 && (
+              <button
+                onClick={() => {
+                  const channelId = channels[0].id;
+                  handleCreatePost(channelId);
+                }}
+                className="flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-accent-hover active:scale-[0.98]"
+              >
+                <Plus className="h-4 w-4" />
+                Новый пост
+              </button>
+            )}
+            <button
+              onClick={() => setShowAddChannel(true)}
+              className="flex items-center gap-2 rounded-xl bg-card border border-border px-4 py-2.5 text-sm font-medium text-foreground transition-all hover:bg-card-hover active:scale-[0.98]"
+            >
+              <Hash className="h-4 w-4" />
+              Канал
+            </button>
+          </div>
         </div>
 
         {showAddChannel && (

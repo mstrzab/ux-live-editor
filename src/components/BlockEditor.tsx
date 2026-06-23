@@ -241,17 +241,31 @@ export default function BlockEditor({ post, channels }: EditorProps) {
     setLastSaved(new Date());
   };
 
-  const autoSave = useCallback(() => {
-    const timeout = setTimeout(() => savePost(), 3000);
-    return () => clearTimeout(timeout);
-  }, [editor, title]);
+  const autoSaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const triggerAutoSave = useCallback(() => {
+    if (autoSaveRef.current) {
+      clearTimeout(autoSaveRef.current);
+    }
+    autoSaveRef.current = setTimeout(() => savePost(), 3000);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (autoSaveRef.current) {
+        clearTimeout(autoSaveRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (editor) {
-      const unsub = autoSave();
-      return unsub;
+      editor.on('update', triggerAutoSave);
+      return () => {
+        editor.off('update', triggerAutoSave);
+      };
     }
-  }, [editor, title]);
+  }, [editor, triggerAutoSave]);
 
   const handlePublish = async () => {
     await savePost();
@@ -343,7 +357,8 @@ export default function BlockEditor({ post, channels }: EditorProps) {
         break;
       case "video":
         handleFileUpload("video");
-        case "audio":
+        break;
+      case "audio":
         handleFileUpload("audio");
         break;
     }

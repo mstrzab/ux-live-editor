@@ -1,11 +1,14 @@
 import crypto from "crypto";
 
 export function verifyTelegramAuth(data: Record<string, string>, botToken: string): boolean {
-  const { hash, ...rest } = data;
+  const { hash, signature, ...rest } = data;
 
-  if (!hash) return false;
+  const checkHash = hash || signature;
+  if (!checkHash) return false;
 
+  // Mini App initData: key=value pairs joined with &
   const checkString = Object.keys(rest)
+    .filter((key) => key !== "hash" && key !== "signature")
     .sort()
     .map((key) => `${key}=${rest[key]}`)
     .join("\n");
@@ -13,7 +16,7 @@ export function verifyTelegramAuth(data: Record<string, string>, botToken: strin
   const secretKey = crypto.createHash("sha256").update(botToken).digest();
   const hmac = crypto.createHmac("sha256", secretKey).update(checkString).digest("hex");
 
-  return hmac === hash;
+  return hmac === checkHash;
 }
 
 export interface TelegramUser {
