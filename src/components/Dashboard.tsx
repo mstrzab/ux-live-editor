@@ -50,6 +50,11 @@ export default function Dashboard() {
   const [filter, setFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [showCreatePost, setShowCreatePost] = useState(false);
+  const [selectedChannelId, setSelectedChannelId] = useState<string>("");
+  const [deletingChannel, setDeletingChannel] = useState<string | null>(null);
+  const [channelError, setChannelError] = useState<string | null>(null);
+  const [channelLoading, setChannelLoading] = useState(false);;
 
   useEffect(() => {
     if (status === "unauthenticated") router.push("/login");
@@ -71,17 +76,31 @@ export default function Dashboard() {
 
   const handleAddChannel = async (e: React.FormEvent) => {
     e.preventDefault();
+    setChannelLoading(true);
+    setChannelError(null);
     const res = await fetch("/api/channels", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(channelForm),
     });
+    const data = await res.json();
     if (res.ok) {
-      const channel = await res.json();
-      setChannels([...channels, channel]);
+      setChannels([...channels, data]);
       setShowAddChannel(false);
       setChannelForm({ name: "", telegramId: "", botToken: "", username: "" });
+    } else {
+      setChannelError(data.error || "Ошибка добавления канала");
     }
+    setChannelLoading(false);
+  };
+
+  const handleDeleteChannel = async (id: string) => {
+    setDeletingChannel(id);
+    const res = await fetch(`/api/channels?id=${id}`, { method: "DELETE" });
+    if (res.ok) {
+      setChannels(channels.filter((c) => c.id !== id));
+    }
+    setDeletingChannel(null);
   };
 
   const handleDeletePost = async (id: string) => {
@@ -149,8 +168,8 @@ export default function Dashboard() {
             {channels.length > 0 && (
               <button
                 onClick={() => {
-                  const channelId = channels[0].id;
-                  handleCreatePost(channelId);
+                  setSelectedChannelId(channels[0].id);
+                  setShowCreatePost(true);
                 }}
                 className="flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-accent-hover active:scale-[0.98]"
               >
@@ -173,68 +192,65 @@ export default function Dashboard() {
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-base font-semibold">Новый канал</h2>
               <button
-                onClick={() => setShowAddChannel(false)}
+                onClick={() => { setShowAddChannel(false); setChannelError(null); }}
                 className="rounded-lg p-1 text-muted hover:bg-card-hover"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
+            {channelError && (
+              <div className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600 border border-red-200">
+                {channelError}
+              </div>
+            )}
             <form onSubmit={handleAddChannel} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium">Название</label>
+                  <label className="mb-1.5 block text-sm font-medium">Название <span className="text-muted/50">(опционально)</span></label>
                   <input
                     type="text"
                     value={channelForm.name}
                     onChange={(e) => setChannelForm({ ...channelForm, name: e.target.value })}
                     className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                    placeholder="Мой канал"
-                    required
+                    placeholder="Авто-название из Telegram"
                   />
                 </div>
                 <div>
-                  <label className="mb-1.5 block text-sm font-medium">Telegram ID</label>
+                  <label className="mb-1.5 block text-sm font-medium">Telegram ID канала <span className="text-red-500">*</span></label>
                   <input
                     type="text"
                     value={channelForm.telegramId}
                     onChange={(e) => setChannelForm({ ...channelForm, telegramId: e.target.value })}
                     className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                    placeholder="-1001234567890"
+                    placeholder="-1001234567890 или @channel_name"
                     required
                   />
+                  <p className="mt-1 text-xs text-muted">Узнай через @userinfobot или Bot API</p>
                 </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium">Bot Token</label>
+                <div className="col-span-2">
+                  <label className="mb-1.5 block text-sm font-medium">Bot Token <span className="text-red-500">*</span></label>
                   <input
                     type="text"
                     value={channelForm.botToken}
                     onChange={(e) => setChannelForm({ ...channelForm, botToken: e.target.value })}
                     className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                    placeholder="123456:ABC-DEF..."
+                    placeholder="123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11"
                     required
                   />
-                </div>
-                <div>
-                  <label className="mb-1.5 block text-sm font-medium">Username</label>
-                  <input
-                    type="text"
-                    value={channelForm.username}
-                    onChange={(e) => setChannelForm({ ...channelForm, username: e.target.value })}
-                    className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
-                    placeholder="@channel_name"
-                  />
+                  <p className="mt-1 text-xs text-muted">Получи через @BotFather. Бот должен быть админом канала с правами на публикацию.</p>
                 </div>
               </div>
               <div className="flex gap-2">
                 <button
                   type="submit"
-                  className="rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover"
+                  disabled={channelLoading}
+                  className="rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50"
                 >
-                  Добавить
+                  {channelLoading ? "Проверка..." : "Добавить канал"}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowAddChannel(false)}
+                  onClick={() => { setShowAddChannel(false); setChannelError(null); }}
                   className="rounded-xl bg-background px-4 py-2 text-sm text-muted hover:bg-card-hover"
                 >
                   Отмена
@@ -277,6 +293,110 @@ export default function Dashboard() {
             </button>
           ))}
         </div>
+
+        {showCreatePost && (
+          <div className="mb-8 animate-in rounded-2xl border border-border bg-card p-6 shadow-sm">
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-base font-semibold">Новый пост</h2>
+              <button
+                onClick={() => setShowCreatePost(false)}
+                className="rounded-lg p-1 text-muted hover:bg-card-hover"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium">Выберите канал</label>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  {channels.map((ch) => (
+                    <button
+                      key={ch.id}
+                      onClick={() => setSelectedChannelId(ch.id)}
+                      className={`flex items-center gap-3 rounded-xl border px-4 py-3 text-left transition-all ${
+                        selectedChannelId === ch.id
+                          ? "border-accent bg-accent/5"
+                          : "border-border bg-background hover:bg-card-hover"
+                      }`}
+                    >
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/10 text-sm font-bold text-accent">
+                        {ch.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">{ch.name}</p>
+                        <p className="truncate text-xs text-muted">{ch.telegramId}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {
+                    if (selectedChannelId) {
+                      handleCreatePost(selectedChannelId);
+                      setShowCreatePost(false);
+                    }
+                  }}
+                  disabled={!selectedChannelId}
+                  className="rounded-xl bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover disabled:opacity-50"
+                >
+                  Создать пост
+                </button>
+                <button
+                  onClick={() => setShowCreatePost(false)}
+                  className="rounded-xl bg-background px-4 py-2 text-sm text-muted hover:bg-card-hover"
+                >
+                  Отмена
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Секция каналов */}
+        {channels.length > 0 && (
+          <div className="mb-8">
+            <h2 className="mb-3 text-lg font-semibold tracking-tight">Каналы</h2>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {channels.map((ch) => (
+                <div
+                  key={ch.id}
+                  className="group relative rounded-xl border border-border bg-card p-4 transition-all hover:border-accent/20 hover:shadow-sm"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/10 text-base font-bold text-accent">
+                      {ch.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{ch.name}</p>
+                      <p className="truncate text-xs text-muted">{ch.username || ch.telegramId}</p>
+                    </div>
+                    <button
+                      onClick={() => handleDeleteChannel(ch.id)}
+                      disabled={deletingChannel === ch.id}
+                      className="rounded-lg p-1.5 text-muted opacity-0 transition-opacity hover:bg-danger/10 hover:text-danger group-hover:opacity-100 disabled:opacity-50"
+                      title="Удалить канал"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      onClick={() => {
+                        setSelectedChannelId(ch.id);
+                        setShowCreatePost(true);
+                      }}
+                      className="flex-1 rounded-lg bg-accent/5 px-3 py-1.5 text-xs font-medium text-accent hover:bg-accent/10"
+                    >
+                      Новый пост
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {channels.length === 0 ? (
           <div className="rounded-2xl border-2 border-dashed border-border p-16 text-center animate-in">
